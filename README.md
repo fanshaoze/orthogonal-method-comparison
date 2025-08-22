@@ -22,7 +22,7 @@ The code generates synthetic datasets to test the orthogonalization procedures, 
 The code follows a structured pipeline to generate data, apply orthogonalization methods, evaluate their performance, and visualize results:
 
 1. **Generate Test Data**:  
-   For each dimension \(i \in \{2,4,8,16,32,64\}\), two datasets are created:
+   For each dimension in [2,4,8,16,32,64], two datasets are created:
    - Real vectors (`vectors_real`).
    - Complex vectors (`vectors_complex`).
 
@@ -37,14 +37,10 @@ The code follows a structured pipeline to generate data, apply orthogonalization
 3. **Performance Evaluation**:  
    The `check_gram_schmidt_procedure` function verifies if the output of each method meets orthonormality criteria:
    - **Normalization**: Each vector’s norm must satisfy  
-     $$
-     |\|u_i\|_2 - 1| \le \varepsilon.
-     $$
+     `| ||u_i||_2 - 1 | <= epsilon`
    - **Orthogonality**: Distinct vectors must satisfy  
-     $$
-     |\langle u_i, u_j \rangle| \le \varepsilon, \quad i \ne j.
-     $$
-   - **Thresholds tested**: \([10^{-2}, 10^{-3}, 10^{-4}, 10^{-5}, 10^{-6}, 10^{-7}, 10^{-8}]\).  
+     `| <u_i, u_j> | <= epsilon, for i != j`
+   - **Thresholds tested**: `[1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8]`.  
 
 4. **Result Aggregation and Visualization**:  
    - `check_procedures` aggregates results (count of orthonormal vectors per method and threshold) and saves them to CSV files.  
@@ -53,77 +49,57 @@ The code follows a structured pipeline to generate data, apply orthogonalization
 ## 4. Orthogonalization Methods
 
 ### 4.1 Gram-Schmidt
-Given input matrix \(V = [v_1, v_2, \dots, v_n]\):
+Given input matrix `V = [v_1, v_2, ..., v_n]`:
 
 1. Set  
-$$
-u_1 = \frac{v_1}{\|v_1\|_2}.
-$$
-2. For each \(k = 2, \dots, n\):  
-$$
-w_k = v_k - \sum_{j=1}^{k-1} \langle u_j, v_k \rangle u_j, \quad
-u_k = \frac{w_k}{\|w_k\|_2}.
-$$
-3. Optionally compute the upper triangular matrix \(R\) with  
-$$
-R_{ij} = \langle u_i, v_j \rangle.
-$$
+   `u_1 = v_1 / ||v_1||_2`
+2. For each `k = 2, ..., n`:  
+   `w_k = v_k - sum_{j=1}^{k-1} <u_j, v_k> * u_j`  
+   `u_k = w_k / ||w_k||_2`
+3. Optionally compute the upper triangular matrix `R` with  
+   `R_{ij} = <u_i, v_j>`
 
-Output: Orthonormal basis \(U = [u_1,\dots,u_n]\) (and \(R\) if requested).
+Output: Orthonormal basis `U = [u_1, ..., u_n]` (and `R` if requested).
 
 ---
 
 ### 4.2 Modified Gram-Schmidt (MGS)
-The projection is subtracted **immediately** after each step:
-$$
-v_k \gets v_k - \langle u_j, v_k \rangle u_j, \quad \text{for each } j < k,
-$$
-$$
-u_k = \frac{v_k}{\|v_k\|_2}.
-$$
+The projection is subtracted **immediately** after each step:  
+`v_k = v_k - <u_j, v_k> * u_j  (for each j < k)`  
+`u_k = v_k / ||v_k||_2`
+
 - Improves numerical stability by reducing error accumulation.  
-- For complex vectors, use the **conjugate inner product**:  
-$$
-\langle u, v \rangle = u^H v.
-$$
+- For complex vectors, use the **conjugate inner product**: `<u, v> = u^H v`
 
 ---
 
 ### 4.3 SciPy QR (sciQR)
-Uses SVD + QR decomposition for high precision:
-$$
-A = U \Sigma V^H.
-$$
-Since columns of \(U\) are orthogonal, perform
-$$
-\Sigma V^H = Q_2 R_2 \quad \Longrightarrow \quad
-A = (U Q_2) R_2.
-$$
-Output: 
-$$
-U' = U Q_2 \quad \text{(orthonormal basis)}, \quad
-R' = R_2.
-$$
+Uses SVD + QR decomposition for high precision:  
+`A = U * Sigma * V^H`
 
-- **Advantages**: stable even if \(A\) is nearly rank-deficient.  
-- **Disadvantages**: computationally expensive (\(O(n^3)\)) and requires CPU↔GPU data transfer.
+Since columns of `U` are orthogonal, perform  
+`Sigma * V^H = Q_2 * R_2  =>  A = (U * Q_2) * R_2`
+
+Output:  
+`U' = U * Q_2  (orthonormal basis),  R' = R_2`
+
+- **Advantages**: stable even if `A` is nearly rank-deficient  
+- **Disadvantages**: computationally expensive (O(n^3)) and requires CPU↔GPU data transfer
 
 ---
 
 ### 4.4 Re-Orthogonalization
-Apply Gram-Schmidt **twice**:
-$$
-U' = \mathrm{GS}(V), \quad U = \mathrm{GS}(U').
-$$
+Apply Gram-Schmidt **twice**:  
+`U' = GS(V),  U = GS(U')`
+
 This reduces residual projections for ill-conditioned vectors.  
 
 ---
 
 ### 4.5 Torch QR
-Directly use PyTorch's implementation:
-$$
-A = Q R, \quad Q^H Q = I.
-$$
+Directly use PyTorch's implementation:  
+`A = Q * R,  Q^H * Q = I`
+
 Fast but slightly less stable than SciPy QR.
 
 ---
